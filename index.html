@@ -405,7 +405,7 @@ select { padding: 4px 6px; border: 1px solid var(--linea); border-radius: var(--
         </div>
         <div class="marco-canvas">
           <canvas id="cvRecorte"></canvas>
-          <div class="vacio" id="vacioRecorte">Elegí una foto o dibujo (JPG o PNG).<br>Después arrastrá sobre la imagen para recortar.</div>
+          <div class="vacio" id="vacioRecorte">Elegí una foto o dibujo (JPG o PNG).<br>También podés arrastrarla hasta acá o pegarla con Ctrl+V.</div>
         </div>
         <p class="ayuda">Recorte: arrastrá para marcar un rectángulo, movelo desde adentro o ajustalo desde las esquinas.</p>
       </div>
@@ -4131,21 +4131,37 @@ const UI = (() => {
 
   $('btnImagen').onclick = () => { llenarCuentasAUsar(); $('dlgImagen').showModal(); Recorte.dibujar(); };
   $('btnRecorteTodo').onclick = () => Recorte.todo();
-  $('inArchivo').onchange = e => {
-    const archivo = e.target.files[0];
-    if (!archivo) return;
+  /** Carga una imagen para convertir, venga del selector, de arrastrarla o de pegarla. */
+  function cargarImagen(archivo) {
+    if (!archivo || !archivo.type.startsWith('image/')) { alert('Eso no es una imagen. Probá con un JPG o PNG.'); return; }
     const url = URL.createObjectURL(archivo);
     const img = new Image();
     img.onload = () => {
       $('vacioRecorte').hidden = true;
       $('btnRecorteTodo').disabled = false;
       Recorte.cargar(img);
-      nombreImagen = archivo.name.replace(/\.[^.]+$/, '');
+      nombreImagen = (archivo.name || 'Imagen pegada').replace(/\.[^.]+$/, '');
       programar();
     };
     img.onerror = () => alert('No se pudo abrir la imagen. Probá con un JPG o PNG.');
     img.src = url;
-  };
+  }
+  $('inArchivo').onchange = e => { cargarImagen(e.target.files[0]); e.target.value = ''; };
+
+  // Arrastrar una imagen a la ventana (desde una carpeta o desde otra pestaña del navegador)
+  $('dlgImagen').addEventListener('dragover', e => { e.preventDefault(); });
+  $('dlgImagen').addEventListener('drop', e => {
+    e.preventDefault();
+    const archivo = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+    if (archivo) cargarImagen(archivo);
+    else alert('No pude tomar esa imagen arrastrándola. Copiala (clic derecho, “Copiar imagen”) y pegala acá con Ctrl+V.');
+  });
+  // Pegar una imagen copiada (por ejemplo desde Google Fotos o iCloud abiertos en otra pestaña)
+  document.addEventListener('paste', e => {
+    if (!$('dlgImagen').open) return;
+    const archivo = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => f.type.startsWith('image/'));
+    if (archivo) { e.preventDefault(); cargarImagen(archivo); }
+  });
   let nombreImagen = '';
   $('cvUsar').onclick = () => {
     if (!resultado) return;
